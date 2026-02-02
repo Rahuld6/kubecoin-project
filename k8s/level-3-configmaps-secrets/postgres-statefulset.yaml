@@ -35,9 +35,15 @@ spec:
             - name: init-script
               mountPath: /docker-entrypoint-initdb.d
       volumes:
-        - name: postgres-storage
-          persistentVolumeClaim:
-            claimName: postgres-pvc
         - name: init-script
           configMap:
             name: postgres-init
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-storage
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: "postgres-static"
+        resources:
+          requests:
+            storage: 1Gi

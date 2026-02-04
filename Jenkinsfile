@@ -85,11 +85,23 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 sh """
-                  kubectl apply -f k8s/level-4-namespaces-resources/db-deployment.yaml -n ${ENV}
+                  # Deploy Postgres resources first
+                  kubectl apply -f k8s/level-4-namespaces-resources/postgres-pv.yaml -n ${ENV}
+                  kubectl apply -f k8s/level-4-namespaces-resources/postgres-init-configmap.yaml -n ${ENV}
+                  kubectl apply -f k8s/level-4-namespaces-resources/postgres-statefulset.yaml -n ${ENV}
+                  kubectl apply -f k8s/level-4-namespaces-resources/postgres-headless-service.yaml -n ${ENV}
+
+                  # Apply backend resources
                   kubectl apply -f k8s/level-4-namespaces-resources/backend-deployment.yaml -n ${ENV}
                   kubectl apply -f k8s/level-4-namespaces-resources/backend-service.yaml -n ${ENV}
+
+                  # Apply frontend resources
                   kubectl apply -f k8s/level-4-namespaces-resources/frontend-deployment.yaml -n ${ENV}
                   kubectl apply -f k8s/level-4-namespaces-resources/frontend-service.yaml -n ${ENV}
+
+                  # Apply secrets and configmaps
+                  kubectl apply -f k8s/level-4-namespaces-resources/secret.yaml -n ${ENV}
+                  kubectl apply -f k8s/level-4-namespaces-resources/configmap.yaml -n ${ENV}
                 """
             }
         }

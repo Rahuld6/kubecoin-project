@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_USER   = "rahuld06097"
+        DOCKER_USER    = "rahuld06097"
         FRONTEND_IMAGE = "rahuld06097/kubecoin-frontend"
         BACKEND_IMAGE  = "rahuld06097/kubecoin-backend"
     }
@@ -20,15 +20,15 @@ pipeline {
                 script {
                     echo "Branch detected: ${env.BRANCH_NAME}"
 
-                    if (env.BRANCH_NAME.contains('dev')) {
+                    if (env.BRANCH_NAME == 'dev') {
                         env.ENV = 'dev'
                         env.TAG = 'dev'
                     }
-                    else if (env.BRANCH_NAME.contains('testing')) {
+                    else if (env.BRANCH_NAME == 'testing') {
                         env.ENV = 'testing'
                         env.TAG = 'test'
                     }
-                    else if (env.BRANCH_NAME.contains('production') || env.BRANCH_NAME.contains('main')) {
+                    else if (env.BRANCH_NAME == 'production' || env.BRANCH_NAME == 'main') {
                         env.ENV = 'production'
                         env.TAG = 'prod'
                     }
@@ -36,7 +36,7 @@ pipeline {
                         error "Unsupported branch: ${env.BRANCH_NAME}"
                     }
 
-                    echo "Environment: ${env.ENV}"
+                    echo "Deploying to namespace: ${env.ENV}"
                     echo "Docker tag: ${env.TAG}"
                 }
             }
@@ -73,14 +73,32 @@ pipeline {
                 """
             }
         }
+
+        stage('Create Namespace (if not exists)') {
+            steps {
+                sh """
+                  kubectl get namespace ${ENV} || kubectl create namespace ${ENV}
+                """
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                sh """
+                  kubectl apply -f k8s/db.yaml -n ${ENV}
+                  kubectl apply -f k8s/backend.yaml -n ${ENV}
+                  kubectl apply -f k8s/frontend.yaml -n ${ENV}
+                """
+            }
+        }
     }
 
     post {
         success {
-            echo "✅ Pipeline completed successfully for ${env.BRANCH_NAME}"
+            echo "✅ CI/CD Pipeline completed successfully for ${env.BRANCH_NAME}"
         }
         failure {
-            echo "❌ Pipeline failed for ${env.BRANCH_NAME}"
+            echo "❌ CI/CD Pipeline failed for ${env.BRANCH_NAME}"
         }
     }
 }

@@ -7,6 +7,7 @@ pipeline {
     BACKEND_IMAGE  = "${DOCKER_USER}/kubecoin-backend"
     ENV = ""
     TAG = ""
+    KUBECONFIG = "/home/jenkins/.kube/config"
   }
 
   stages {
@@ -14,17 +15,20 @@ pipeline {
     stage('Identify Environment') {
       steps {
         script {
-          if (env.BRANCH_NAME == 'dev') {
+          if (env.BRANCH_NAME.contains('dev')) {
             env.ENV = 'dev'
             env.TAG = 'dev'
-          } else if (env.BRANCH_NAME == 'testing') {
+          } else if (env.BRANCH_NAME.contains('testing')) {
             env.ENV = 'testing'
             env.TAG = 'test'
-          } else if (env.BRANCH_NAME == 'production') {
+          } else if (env.BRANCH_NAME.contains('production') || env.BRANCH_NAME.contains('main')) {
             env.ENV = 'production'
-            env.TAG = 'production'
+            env.TAG = 'prod'
+          } else {
+            error "Unknown branch: ${env.BRANCH_NAME}"
           }
-          echo "Deploying to ${env.ENV} with tag ${env.TAG}"
+
+          echo "Deploying to ${env.ENV} environment with tag ${env.TAG}"
         }
       }
     }
@@ -32,8 +36,8 @@ pipeline {
     stage('Build Docker Images') {
       steps {
         sh """
-          docker build --no-cache -t ${env.FRONTEND_IMAGE}:${env.TAG} frontend
-          docker build --no-cache -t ${env.BACKEND_IMAGE}:${env.TAG} backend
+          docker build --no-cache -t ${FRONTEND_IMAGE}:${TAG} frontend
+          docker build --no-cache -t ${BACKEND_IMAGE}:${TAG} backend
         """
       }
     }
@@ -41,14 +45,14 @@ pipeline {
     stage('Push Images to DockerHub') {
       steps {
         withCredentials([usernamePassword(
-          credentialsId: 'dockerhub-creds',
-          usernameVariable: 'USER',
-          passwordVariable: 'PASS'
+          credentialsId: 'docker-credentials',
+          usernameVariable: 'DOCKER_USER',
+          passwordVariable: 'DOCKER_PASS'
         )]) {
           sh """
-            echo \$PASS | docker login -u \$USER --password-stdin
-            docker push ${env.FRONTEND_IMAGE}:${env.TAG}
-            docker push ${env.BACKEND_IMAGE}:${env.TAG}
+            echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin
+            docker push ${FRONTEND_IMAGE}:${TAG}
+            docker push ${BACKEND_IMAGE}:${TAG}
           """
         }
       }
@@ -57,11 +61,14 @@ pipeline {
     stage('Deploy to Kubernetes') {
       steps {
         sh """
-          export KUBECONFIG=/home/jenkins/kubeconfig
-          kubectl get ns ${env.ENV} || kubectl create ns ${env.ENV}
-          kubectl apply -f k8s/db.yaml -n ${env.ENV}
-          kubectl apply -f k8s/backend.yaml -n ${env.ENV}
-          kubectl apply -f k8s/frontend.yaml -n ${env.ENV}
+          kubectl get ns ${ENV} || kubectl create ns ${ENV}
+
+          kubectl apply -f k8s/db.yaml -n ${ENV}
+          kubectl apply -f k8s/backend.yaml -n ${ENV}
+          kubectl apply -f k8s/frontend.yaml -n ${ENV}
+
+          kubectl rollout status deployment/backend -n ${ENV}
+          kubectl rollout status deployment/frontend -n ${ENV}
         """
       }
     }

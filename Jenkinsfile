@@ -23,13 +23,16 @@ pipeline {
                     if (env.BRANCH_NAME == 'dev') {
                         env.ENV = 'dev'
                         env.TAG = 'dev'
-                    } else if (env.BRANCH_NAME == 'testing') {
+                    }
+                    else if (env.BRANCH_NAME == 'testing') {
                         env.ENV = 'testing'
                         env.TAG = 'test'
-                    } else if (env.BRANCH_NAME == 'production' || env.BRANCH_NAME == 'main') {
+                    }
+                    else if (env.BRANCH_NAME == 'production' || env.BRANCH_NAME == 'main') {
                         env.ENV = 'production'
                         env.TAG = 'prod'
-                    } else {
+                    }
+                    else {
                         error "Unsupported branch: ${env.BRANCH_NAME}"
                     }
 
@@ -82,15 +85,12 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 sh """
-                  kubectl apply -f k8s/db-deployment.yaml -n ${ENV}
-                  kubectl apply -f k8s/backend-deployment.yaml -n ${ENV}
-                  kubectl apply -f k8s/backend-service.yaml -n ${ENV}
-                  kubectl apply -f k8s/frontend-deployment.yaml -n ${ENV}
-                  kubectl apply -f k8s/frontend-service.yaml -n ${ENV}
+                  kubectl apply -f k8s/db.yaml -n ${ENV}
+                  kubectl apply -f k8s/backend.yaml -n ${ENV}
+                  kubectl apply -f k8s/frontend.yaml -n ${ENV}
                 """
             }
         }
-
     }
 
     post {

@@ -3,13 +3,10 @@ pipeline {
 
   environment {
     DOCKER_USER = "rahuld06097"
-
     FRONTEND_IMAGE = "${DOCKER_USER}/kubecoin-frontend"
     BACKEND_IMAGE  = "${DOCKER_USER}/kubecoin-backend"
-
     ENV = ""
     TAG = ""
-    KUBECONFIG = "/home/ubuntu/.kube/config"
   }
 
   stages {
@@ -19,16 +16,15 @@ pipeline {
         script {
           if (env.BRANCH_NAME == 'dev') {
             env.ENV = 'dev'
+            env.TAG = 'dev'
           } else if (env.BRANCH_NAME == 'testing') {
             env.ENV = 'testing'
+            env.TAG = 'test'
           } else if (env.BRANCH_NAME == 'production') {
             env.ENV = 'production'
-          } else {
-            error "Unsupported branch: ${env.BRANCH_NAME}"
+            env.TAG = 'production'
           }
-
-          // unique, traceable image tag
-          env.TAG = "${ENV}-${BUILD_NUMBER}"
+          echo "Deploying to ${env.ENV} with tag ${env.TAG}"
         }
       }
     }
@@ -36,8 +32,8 @@ pipeline {
     stage('Build Docker Images') {
       steps {
         sh """
-          docker build --no-cache -t ${FRONTEND_IMAGE}:${TAG} frontend
-          docker build --no-cache -t ${BACKEND_IMAGE}:${TAG} backend
+          docker build --no-cache -t ${env.FRONTEND_IMAGE}:${env.TAG} frontend
+          docker build --no-cache -t ${env.BACKEND_IMAGE}:${env.TAG} backend
         """
       }
     }
@@ -51,8 +47,8 @@ pipeline {
         )]) {
           sh """
             echo \$PASS | docker login -u \$USER --password-stdin
-            docker push ${FRONTEND_IMAGE}:${TAG}
-            docker push ${BACKEND_IMAGE}:${TAG}
+            docker push ${env.FRONTEND_IMAGE}:${env.TAG}
+            docker push ${env.BACKEND_IMAGE}:${env.TAG}
           """
         }
       }
@@ -61,17 +57,11 @@ pipeline {
     stage('Deploy to Kubernetes') {
       steps {
         sh """
-          kubectl get ns ${ENV} || kubectl create ns ${ENV}
-
-          kubectl apply -f k8s/db.yaml -n ${ENV}
-          kubectl apply -f k8s/backend.yaml -n ${ENV}
-          kubectl apply -f k8s/frontend.yaml -n ${ENV}
-
-          kubectl set image deployment/backend \
-            backend=${BACKEND_IMAGE}:${TAG} -n ${ENV}
-
-          kubectl set image deployment/frontend \
-            frontend=${FRONTEND_IMAGE}:${TAG} -n ${ENV}
+          export KUBECONFIG=/home/jenkins/kubeconfig
+          kubectl get ns ${env.ENV} || kubectl create ns ${env.ENV}
+          kubectl apply -f k8s/db.yaml -n ${env.ENV}
+          kubectl apply -f k8s/backend.yaml -n ${env.ENV}
+          kubectl apply -f k8s/frontend.yaml -n ${env.ENV}
         """
       }
     }

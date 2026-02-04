@@ -85,9 +85,11 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 sh """
-                  kubectl apply -f k8s/db.yaml -n ${ENV}
-                  kubectl apply -f k8s/backend.yaml -n ${ENV}
-                  kubectl apply -f k8s/frontend.yaml -n ${ENV}
+                  kubectl apply -f k8s/level-4-namespaces-resources/db-deployment.yaml -n ${ENV}
+                  kubectl apply -f k8s/level-4-namespaces-resources/backend-deployment.yaml -n ${ENV}
+                  kubectl apply -f k8s/level-4-namespaces-resources/backend-service.yaml -n ${ENV}
+                  kubectl apply -f k8s/level-4-namespaces-resources/frontend-deployment.yaml -n ${ENV}
+                  kubectl apply -f k8s/level-4-namespaces-resources/frontend-service.yaml -n ${ENV}
                 """
             }
         }
